@@ -20,11 +20,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Voeg een mooie deelnemerssectie toe
+        let participantsHTML = "";
+        if (details.participants.length > 0) {
+          participantsHTML = `
+            <div class="participants-section" style="margin-top:10px; background:#f6f8fa; border-radius:6px; padding:8px 12px;">
+              <strong>Deelnemers:</strong>
+              <ul class="participants-list">
+                ${details.participants.map(p => `
+                  <li style="display: flex; align-items: center; gap: 8px;">
+                    <span>${p}</span>
+                    <button class="delete-participant-btn" title="Verwijder deelnemer" data-activity="${name}" data-email="${p}" style="background: none; border: none; color: #c62828; cursor: pointer; font-size: 18px; padding: 0;">
+                      <span aria-hidden="true">&#128465;</span>
+                    </button>
+                  </li>
+                `).join("")}
+              </ul>
+            </div>
+          `;
+          // ...existing code...
+                // Event delegation voor delete-knoppen (buiten fetchActivities, zodat het niet dubbel wordt toegevoegd)
+                activitiesList.addEventListener("click", async (event) => {
+                  if (event.target.closest && event.target.closest(".delete-participant-btn")) {
+                    const btn = event.target.closest(".delete-participant-btn");
+                    const activity = btn.getAttribute("data-activity");
+                    const email = btn.getAttribute("data-email");
+                    if (confirm(`Weet je zeker dat je ${email} wilt verwijderen uit ${activity}?`)) {
+                      try {
+                        const response = await fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, {
+                          method: "DELETE",
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                          messageDiv.textContent = result.message;
+                          messageDiv.className = "success";
+                          fetchActivities();
+                        } else {
+                          messageDiv.textContent = result.detail || "Er is een fout opgetreden";
+                          messageDiv.className = "error";
+                        }
+                        messageDiv.classList.remove("hidden");
+                        setTimeout(() => {
+                          messageDiv.classList.add("hidden");
+                        }, 5000);
+                      } catch (error) {
+                        messageDiv.textContent = "Verwijderen mislukt. Probeer het opnieuw.";
+                        messageDiv.className = "error";
+                        messageDiv.classList.remove("hidden");
+                      }
+                    }
+                  }
+                });
+        } else {
+          participantsHTML = `
+            <div class="participants-section" style="margin-top:10px; background:#f6f8fa; border-radius:6px; padding:8px 12px;">
+              <em>Nog geen deelnemers</em>
+            </div>
+          `;
+        }
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHTML}
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
